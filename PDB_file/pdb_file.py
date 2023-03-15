@@ -275,16 +275,15 @@ class PDB_file:
         if len(self.molecules) != 0:
             print(f"Number of residues found: {len(self.molecules)}")
             for molecule in self.molecules:
-                print("Residue name: ", molecule.name)
-                print("Number of atoms: ", len(molecule.atoms))
-                print("Amount of ", molecule.name, ": ", molecule.amount)
+                print("### RESIDUE ###")
+                print("Name: ", molecule.name)
+                print("Number of atoms:", len(molecule.atoms))
+                print("Repetition:", molecule.name, ":", molecule.amount)
+                if molecule.atoms[0].charge != None:
+                    print("Total charge: ", molecule.total_charge)
         else:
             print("No residues found, only atoms")
             print("Number of atoms: ", len(self.atoms))
-            if self.atoms[0].charge != None:
-                ## ADD A DIPOLE MOMENT INFORMATION
-                print("Total charge: ", self.total_charge())
-            print("Atoms have charges:")
             
                 
     def format_nicely(self):
@@ -390,8 +389,13 @@ def scale_charges(pdb, scale_factor):
     ### Scale the charges of a clone of the PDB object by a scaling factor
     ## Return the new PDB object
     modified_pdb = copy.deepcopy(pdb)
-    for atom in modified_pdb.atoms:
-        atom.charge = atom.charge*scale_factor
+    if len(modified_pdb.molecules) != 0:
+        for molecule in modified_pdb.molecules:
+            for atom in molecule.atoms:
+                atom.charge = atom.charge*scale_factor
+    else:
+        for atom in modified_pdb.atoms:
+            atom.charge = atom.charge*scale_factor
     return modified_pdb
 
 def mix_charges(pdb1, pdb2, ratio=0.5):
@@ -399,12 +403,40 @@ def mix_charges(pdb1, pdb2, ratio=0.5):
     ##  (ex: ratio=0.1 means that the new charge will be 10% of the original charge and 90% of the source charge)
     ## Return the new PDB object
     modified_pdb = copy.deepcopy(pdb1)
-    for atom1 in modified_pdb.atoms:
-        for atom2 in pdb2.atoms:
-            if atom1.name == atom2.name:
-                new_charge = atom1.charge*(ratio) + atom2.charge*(1-ratio)
-                new_charge = round(new_charge, 6)
-                atom1.charge = new_charge
+    if len(modified_pdb.molecules) != 0:
+        if len(pdb2.molecules) != 0:
+            for molecule1 in modified_pdb.molecules:
+                for molecule2 in pdb2.molecules:
+                    if molecule1.name == molecule2.name:
+                        for atom1 in molecule1.atoms:
+                            for atom2 in molecule2.atoms:
+                                if atom1.name == atom2.name:
+                                    new_charge = atom1.charge*(ratio) + atom2.charge*(1-ratio)
+                                    new_charge = round(new_charge, 6)
+                                    atom1.charge = new_charge
+        else:
+            for molecule in modified_pdb.molecules:
+                for atom1 in molecule.atoms:
+                    for atom2 in pdb2.atoms:
+                        if atom1.name == atom2.name:
+                            new_charge = atom1.charge*(ratio) + atom2.charge*(1-ratio)
+                            new_charge = round(new_charge, 6)
+                            atom1.charge = new_charge
+    else:
+        for atom1 in modified_pdb.atoms:
+            if len(pdb2.molecules) != 0:
+                for molecule in pdb2.molecules:
+                    for atom2 in molecule.atoms:
+                        if atom1.name == atom2.name:
+                            new_charge = atom1.charge*(ratio) + atom2.charge*(1-ratio)
+                            new_charge = round(new_charge, 6)
+                            atom1.charge = new_charge
+            else:
+                for atom2 in pdb2.atoms:
+                    if atom1.name == atom2.name:
+                        new_charge = atom1.charge*(ratio) + atom2.charge*(1-ratio)
+                        new_charge = round(new_charge, 6)
+                        atom1.charge = new_charge
     return modified_pdb
 
 def swap_charges(original, source):
