@@ -3,11 +3,13 @@ import re
 import copy
 import atom
 import bond
+import molecule
 
 
 class PDB_file:
     def __init__(self, file_path='', read_parameters=True) -> None:
         self.atoms = []
+        self.molecules = []
         self.bonds = []
         self.parameters = {'masses': [],
                             'bonds': [],
@@ -30,6 +32,10 @@ class PDB_file:
                     elif line.startswith('ATOM') or line.startswith('HETATM'):
                         new_atom = atom.Atom(line=line, fromline=True)
                         self.atoms.append(new_atom)
+                    elif re.match(r'@[0-9]*', line):
+                        new_molecule = molecule.Molecule(atoms=self.atoms, amount=int(line[1:]))
+                        self.molecules.append(new_molecule)
+                        self.atoms.clear()
                     elif line.startswith('CONN') or line.startswith('CONECT'):
                         new_bond = bond.Bond(line=line, fromline=True)
                         self.bonds.append(new_bond)
@@ -182,23 +188,43 @@ class PDB_file:
                     }
     
     def share_atom_type(self, verbose=False):
-        for atom in self.atoms:
-            for bond in self.bonds:
-                if atom.number == bond.center:
-                    if atom.type == None and bond.atom_type != None:
-                        atom.type = bond.atom_type
-                        if verbose==True:
-                            print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
-                    elif bond.atom_type == None and atom.type != None:
-                        bond.atom_type = atom.type
-                        if verbose==True:
-                            print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
-                    elif atom.type == None and bond.atom_type == None:
-                        if verbose==True:
-                            print(f"No atom type found for atom {atom.number} - {atom.name}")
-                    elif (atom.type != None and bond.atom_type != None) and atom.type != bond.atom_type:
-                        if verbose==True:
-                            print(f"Atom type mismatch between bond and atom information for atom {atom.number} - {atom.name}\nAtom type from atom: {atom.type}\nAtom type from bond: {bond.atom_type}")
+        if len(self.molecules) != 0:
+            for molecule in self.molecules:
+                for atom in molecule.atoms:
+                    for bond in self.bonds:
+                        if atom.number == bond.center:
+                            if atom.type == None and bond.atom_type != None:
+                                atom.type = bond.atom_type
+                                if verbose==True:
+                                    print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
+                            elif bond.atom_type == None and atom.type != None:
+                                bond.atom_type = atom.type
+                                if verbose==True:
+                                    print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
+                            elif atom.type == None and bond.atom_type == None:
+                                if verbose==True:
+                                    print(f"No atom type found for atom {atom.number} - {atom.name}")
+                            elif (atom.type != None and bond.atom_type != None) and atom.type != bond.atom_type:
+                                if verbose==True:
+                                    print(f"Atom type mismatch between bond and atom information for atom {atom.number} - {atom.name}\nAtom type from atom: {atom.type}\nAtom type from bond: {bond.atom_type}")                 
+        else:
+            for atom in self.atoms:
+                for bond in self.bonds:
+                    if atom.number == bond.center:
+                        if atom.type == None and bond.atom_type != None:
+                            atom.type = bond.atom_type
+                            if verbose==True:
+                                print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
+                        elif bond.atom_type == None and atom.type != None:
+                            bond.atom_type = atom.type
+                            if verbose==True:
+                                print(f"New atom type found for atom {atom.number} - {atom.name} : {atom.type}")
+                        elif atom.type == None and bond.atom_type == None:
+                            if verbose==True:
+                                print(f"No atom type found for atom {atom.number} - {atom.name}")
+                        elif (atom.type != None and bond.atom_type != None) and atom.type != bond.atom_type:
+                            if verbose==True:
+                                print(f"Atom type mismatch between bond and atom information for atom {atom.number} - {atom.name}\nAtom type from atom: {atom.type}\nAtom type from bond: {bond.atom_type}")
                     
     def read_box(self, line):
         box_field = line.split()
@@ -226,37 +252,83 @@ class PDB_file:
     
     def total_charge(self):
         total_charge = 0
-        for atom in self.atoms:
-            total_charge += atom.charge
+        if len(self.molecules) != 0:
+            for molecule in self.molecules:
+                for atom in molecule.atoms:
+                    total_charge += atom.charge
+        else:
+            for atom in self.atoms:
+                total_charge += atom.charge
         total_charge = round(total_charge, 8)
         return total_charge
     
     def dipole_moment(self):
-        for atom in self.atoms:
-            if atom.name == 'O':
-                print(atom.name, atom.charge)
+        if len(self.molecules) != 0:
+            for molecule in self.molecules:
+                raise NotImplementedError("Dipole moment calculation for residues not implemented yet")
+        else:
+            for atom in self.atoms:
+                raise NotImplementedError("Dipole moment calculation for atoms not implemented yet")
+                
+    def describe(self):
+        if len(self.molecules) != 0:
+            print(f"Number of residues found: {len(self.molecules)}")
+            for molecule in self.molecules:
+                print("Residue name: ", molecule.name)
+                print("Number of atoms: ", len(molecule.atoms))
+                print("Amount of ", molecule.name, ": ", molecule.amount)
+        else:
+            print("No residues found, only atoms")
+            print("Number of atoms: ", len(self.atoms))
+            if self.atoms[0].charge != None:
+                ## ADD A DIPOLE MOMENT INFORMATION
+                print("Total charge: ", self.total_charge())
+            print("Atoms have charges:")
+            
                 
     def format_nicely(self):
         ## Format the PDB (xdraw style) and return a list of lines (printable, exportable...)
         lines = []
-        for atom in self.atoms:
-            lines += [f"ATOM    {format(atom.number, '>3')} {format(atom.name, '<5')} {format(atom.resname, '<3')}     {format(atom.resnumber, '<3')}     "]
-            if atom.x >= 0:
-                lines[-1] += f" {atom.x:6.6f}  "
-            else:
-                lines[-1] += f"{atom.x:6.6f}  "
-            if atom.y >= 0:
-                lines[-1] += f" {atom.y:6.6f}  "
-            else:
-                lines[-1] += f"{atom.y:6.6f}  "
-            if atom.z >= 0:
-                lines[-1] += f" {atom.z:6.6f}  "
-            else:
-                lines[-1] += f"{atom.z:6.6f}  "
-            if atom.charge >= 0:
-                lines[-1] += f" {atom.charge:6.6f}"
-            else:
-                lines[-1] += f"{atom.charge:6.6f}"
+        if len(self.molecules) != 0:
+            for molecule in self.molecules:
+                for atom in molecule.atoms:
+                    lines += [f"ATOM    {format(atom.number, '>3')} {format(atom.name, '<5')} {format(atom.resname, '<3')}     {format(atom.resnumber, '<3')}     "]
+                    if atom.x >= 0:
+                        lines[-1] += f" {atom.x:6.6f}  "
+                    else:
+                        lines[-1] += f"{atom.x:6.6f}  "
+                    if atom.y >= 0:
+                        lines[-1] += f" {atom.y:6.6f}  "
+                    else:
+                        lines[-1] += f"{atom.y:6.6f}  "
+                    if atom.z >= 0:
+                        lines[-1] += f" {atom.z:6.6f}  "
+                    else:
+                        lines[-1] += f"{atom.z:6.6f}  "
+                    if atom.charge >= 0:
+                        lines[-1] += f" {atom.charge:6.6f}"
+                    else:
+                        lines[-1] += f"{atom.charge:6.6f}"
+                lines += [f"@{molecule.amount}"]
+        else:
+            for atom in self.atoms:
+                lines += [f"ATOM    {format(atom.number, '>3')} {format(atom.name, '<5')} {format(atom.resname, '<3')}     {format(atom.resnumber, '<3')}     "]
+                if atom.x >= 0:
+                    lines[-1] += f" {atom.x:6.6f}  "
+                else:
+                    lines[-1] += f"{atom.x:6.6f}  "
+                if atom.y >= 0:
+                    lines[-1] += f" {atom.y:6.6f}  "
+                else:
+                    lines[-1] += f"{atom.y:6.6f}  "
+                if atom.z >= 0:
+                    lines[-1] += f" {atom.z:6.6f}  "
+                else:
+                    lines[-1] += f"{atom.z:6.6f}  "
+                if atom.charge >= 0:
+                    lines[-1] += f" {atom.charge:6.6f}"
+                else:
+                    lines[-1] += f"{atom.charge:6.6f}"
         lines += ["END"]
         for bond in self.bonds:
             lines += [f"CONN    {format(bond.center, '>3')} {format(bond.atom_type, '<2')}   "]
