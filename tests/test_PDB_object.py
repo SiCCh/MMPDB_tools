@@ -1,4 +1,6 @@
+import sys
+sys.path.insert(0, r'../')
 
-pdb = PDB_file("PDB_with_amounts.pdb")
-for molecule in pdb.molecules:
-    print(molecule.name)
+import PDB_file.pdb_file as pdb_file
+
+pdb = pdb_file.PDB_file("PDB_with_amounts.pdb")

@@ -1,14 +1,14 @@
 import re
 import math
-import atom
-
+from .atom import Atom
 class Molecule:
     def __init__(self, atoms, amount=1) -> None:
-        self.atoms = atoms
-        self.count = amount
+        self.amount = amount
+        self.atoms = []
         name = atoms[0].resname
         same_name = False
         for atom in atoms:
+            self.atoms += [atom]
             if atom.resname == name:
                 same_name = True
             else:
@@ -16,3 +16,4 @@ class Molecule:
                 break
         if same_name == False:
             print("Warning: Atoms in molecule object belongs to different residues.")
+        self.name = name

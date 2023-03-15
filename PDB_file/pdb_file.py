@@ -1,9 +1,9 @@
 import math
 import re
 import copy
-import atom
-import bond
-import molecule
+from .atom import Atom
+from .bond import Bond
+from .molecule import Molecule
 
 
 class PDB_file:
@@ -30,14 +30,14 @@ class PDB_file:
                     if line.startswith('#'):
                         pass
                     elif line.startswith('ATOM') or line.startswith('HETATM'):
-                        new_atom = atom.Atom(line=line, fromline=True)
+                        new_atom = Atom(line=line, fromline=True)
                         self.atoms.append(new_atom)
-                    elif re.match(r'@[0-9]*', line):
-                        new_molecule = molecule.Molecule(atoms=self.atoms, amount=int(line[1:]))
+                    elif re.match(r'@[0-9]+', line):
+                        new_molecule = Molecule(atoms=self.atoms, amount=int(line[1:]))
                         self.molecules.append(new_molecule)
                         self.atoms.clear()
                     elif line.startswith('CONN') or line.startswith('CONECT'):
-                        new_bond = bond.Bond(line=line, fromline=True)
+                        new_bond = Bond(line=line, fromline=True)
                         self.bonds.append(new_bond)
                     elif line.startswith('BOX'):
                         self.box = self.read_box(line)
@@ -231,10 +231,11 @@ class PDB_file:
         box_x = float(box_field[1])
         box_y = float(box_field[2])
         box_z = float(box_field[3])
-        if len(line.split()) > 5:
+        if len(line.split()) == 5:
             alpha = float(box_field[4])
             beta = float(box_field[5])
-            gamma = float(box_field[6])
+            if len(line.split()) == 6:
+                gamma = float(box_field[6])
         else:
             alpha = float(box_field[4])
             beta = alpha
