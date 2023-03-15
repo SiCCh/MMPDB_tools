@@ -231,10 +231,11 @@ class PDB_file:
         box_x = float(box_field[1])
         box_y = float(box_field[2])
         box_z = float(box_field[3])
-        if len(line.split()) == 5:
+        if len(line.split()) > 5:
             alpha = float(box_field[4])
             beta = float(box_field[5])
-            if len(line.split()) == 6:
+            gamma = None
+            if len(line.split()) > 6:
                 gamma = float(box_field[6])
         else:
             alpha = float(box_field[4])
@@ -284,6 +285,7 @@ class PDB_file:
         else:
             print("No residues found, only atoms")
             print("Number of atoms: ", len(self.atoms))
+            print("Total charge: ", self.total_charge())
             
                 
     def format_nicely(self):
