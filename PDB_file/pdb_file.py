@@ -16,12 +16,7 @@ class PDB_file:
                             'angles': [],
                             'dihedrals': [],
                             'nonbonded': []}
-        self.box = {'a': 0.0,
-                     'b': 0.0,
-                     'c': 0.0,
-                     'alpha': 0.0,
-                     'beta': 0.0,
-                     'gamma': 0.0}
+        self.box = None
         self.datfile = ''
         if file_path != '':
             with open(file_path, 'r') as pdb:
@@ -243,14 +238,17 @@ class PDB_file:
             gamma = alpha
         return {'a': box_x, 'b': box_y, 'c': box_z, 'alpha': alpha, 'beta': beta, 'gamma': gamma}
     
-    def box_volume(self, box):
-        a = box['a']
-        b = box['b']
-        c = box['c']
-        alpha = box['alpha']
-        beta = box['beta']
-        gamma = box['gamma']
-        return (a*b*c*(1 - math.cos(alpha)**2 - math.cos(beta)**2 - math.cos(gamma)**2 + 2*math.cos(alpha)*math.cos(beta)*math.cos(gamma))**0.5)
+    def box_volume(self):
+        if self.box != None:
+            a = self.box['a']
+            b = self.box['b']
+            c = self.box['c']
+            alpha = self.box['alpha']
+            beta = self.box['beta']
+            gamma = self.box['gamma']
+            return (a*b*c*(1 - math.cos(alpha)**2 - math.cos(beta)**2 - math.cos(gamma)**2 + 2*math.cos(alpha)*math.cos(beta)*math.cos(gamma))**0.5)
+        else:
+            raise ValueError("No box information found")
     
     def total_charge(self):
         total_charge = 0
@@ -266,11 +264,22 @@ class PDB_file:
     
     def dipole_moment(self):
         if len(self.molecules) != 0:
+            dipole_moments = []
             for molecule in self.molecules:
-                raise NotImplementedError("Dipole moment calculation for residues not implemented yet")
+                dipole_moments += [molecule.dipole_moment()]
+            return dipole_moments
         else:
             for atom in self.atoms:
-                raise NotImplementedError("Dipole moment calculation for atoms not implemented yet")
+                total_charge=0
+                dipole_vector=[0.0,0.0,0.0]
+                for atom in self.atoms:
+                    total_charge+=float(atom.charge)
+                    dipole_vector[0] += atom.charge*float(atom.x)
+                    dipole_vector[1] += atom.charge*float(atom.y)
+                    dipole_vector[2] += atom.charge*float(atom.z)
+                dipole_moment=math.sqrt(dipole_vector[0]**2 + dipole_vector[1]**2 + dipole_vector[2]**2)
+                dipole_moment=dipole_moment*(1/0.2081943) ## e-.Angstrom to Debye
+                return [(dipole_moment, dipole_vector)]
                 
     def describe(self):
         if len(self.molecules) != 0:
@@ -282,6 +291,7 @@ class PDB_file:
                 print("Repetition:", molecule.name, ":", molecule.amount)
                 if molecule.atoms[0].charge != None:
                     print("Total charge: ", molecule.total_charge)
+                    print("Dipole moment: ", round(molecule.dipole_moment()[0], 4))
         else:
             print("No residues found, only atoms")
             print("Number of atoms: ", len(self.atoms))
@@ -295,19 +305,19 @@ class PDB_file:
             for molecule in self.molecules:
                 for atom in molecule.atoms:
                     lines += [f"ATOM    {format(atom.number, '>3')} {format(atom.name, '<5')} {format(atom.resname, '<3')}     {format(atom.resnumber, '<3')}     "]
-                    if atom.x >= 0:
+                    if not str(atom.x).startswith("-"):
                         lines[-1] += f" {atom.x:6.6f}  "
                     else:
                         lines[-1] += f"{atom.x:6.6f}  "
-                    if atom.y >= 0:
+                    if not str(atom.y).startswith("-"):
                         lines[-1] += f" {atom.y:6.6f}  "
                     else:
                         lines[-1] += f"{atom.y:6.6f}  "
-                    if atom.z >= 0:
+                    if not str(atom.z).startswith("-"):
                         lines[-1] += f" {atom.z:6.6f}  "
                     else:
                         lines[-1] += f"{atom.z:6.6f}  "
-                    if atom.charge >= 0:
+                    if not str(atom.charge).startswith("-"):
                         lines[-1] += f" {atom.charge:6.6f}"
                     else:
                         lines[-1] += f"{atom.charge:6.6f}"
@@ -315,19 +325,19 @@ class PDB_file:
         else:
             for atom in self.atoms:
                 lines += [f"ATOM    {format(atom.number, '>3')} {format(atom.name, '<5')} {format(atom.resname, '<3')}     {format(atom.resnumber, '<3')}     "]
-                if atom.x >= 0:
+                if not str(atom.x).startswith("-"):
                     lines[-1] += f" {atom.x:6.6f}  "
                 else:
                     lines[-1] += f"{atom.x:6.6f}  "
-                if atom.y >= 0:
+                if not str(atom.y).startswith("-"):
                     lines[-1] += f" {atom.y:6.6f}  "
                 else:
                     lines[-1] += f"{atom.y:6.6f}  "
-                if atom.z >= 0:
+                if not str(atom.z).startswith("-"):
                     lines[-1] += f" {atom.z:6.6f}  "
                 else:
                     lines[-1] += f"{atom.z:6.6f}  "
-                if atom.charge >= 0:
+                if not str(atom.charge).startswith("-"):
                     lines[-1] += f" {atom.charge:6.6f}"
                 else:
                     lines[-1] += f"{atom.charge:6.6f}"
@@ -337,7 +347,10 @@ class PDB_file:
             for bonded_atom in bond.bonded_atoms:
                 lines[-1] += f"{bonded_atom} "
         lines += ["END"]
-        lines += ["# MM parameters"]
+        for key in self.parameters.keys():
+            if self.parameters[key] != []:
+                lines += ["# MM parameters"]
+                break
         for key in self.parameters.keys():
             if key == "mass_parameters" and len(self.parameters[key]) > 0:
                 lines += ["MASS"]
@@ -366,10 +379,11 @@ class PDB_file:
                         lines += [f"{format(item['atom_type'], '<2')}  {float(item['r']):6.4f}  {float(item['epsilon']):6.4f}"]
                     elif item['format'] == 'type_1, type_2, Acoeff, Bcoeff':
                         lines += [f"{format(item['atom_type_1'], '<2')} {format(item['atom_type_2'], '<2')} {float(item['Acoeff']):6.4f}  {float(item['Bcoeff']):6.4f}"]
-        lines += ["END"]
-        if self.box != []:
+        if lines[-1] != "END":
+            lines += ["END"]
+        if self.box != None :
             lines += [(f"BOX {self.box['a']} {self.box['b']} {self.box['c']} {self.box['alpha']} {self.box['beta']} {self.box['gamma']}")]
-        lines += ["END"]
+            lines += ["END"]
         if self.datfile != []:
             lines += [self.datfile]
         return lines
@@ -442,7 +456,7 @@ def mix_charges(pdb1, pdb2, ratio=0.5):
     return modified_pdb
 
 def swap_charges(original, source):
-    return mix_charges(original, source, 1.0)
+    return mix_charges(original, source, 0.0)
                 
 
-## Implement a converter for LJ/WH rules
+## Implement a converter for (type r epsilon) to (type_1 type_2 Acoeff Bcoeff) and allows to use LJ/WH rules
