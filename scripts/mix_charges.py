@@ -1,5 +1,6 @@
 import sys
-sys.path.insert(0, r'../')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from PDB_file import pdb_file
 import argparse
 
@@ -25,7 +26,6 @@ args=parser.parse_args()
 pdb1=args.inputA
 pdb2=args.inputB
 mixing_factor=float(args.mix)
-output=args.output
 
 pdb1 = pdb_file.PDB_file(pdb1)
 pdb2 = pdb_file.PDB_file(pdb2)

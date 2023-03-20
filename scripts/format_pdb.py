@@ -1,5 +1,6 @@
 import sys
-sys.path.insert(0, r'../')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from PDB_file import pdb_file
 import argparse
 
@@ -17,7 +18,6 @@ parser.add_argument('-o', '--output',
 args=parser.parse_args()
 
 pdb1=args.input
-output=args.output
 
 pdb1 = pdb_file.PDB_file(pdb1)
 output.export_to_pdb(args.output)
