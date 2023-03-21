@@ -18,7 +18,6 @@ parser.add_argument('-o', '--output',
 args=parser.parse_args()
 
 pdb1=args.input
-output=args.output
 
 pdb1 = pdb_file.PDB_file(pdb1)
 pdb1.export_to_pdb(args.output)
