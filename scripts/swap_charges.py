@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from PDB_file import pdb_file
+from pdb_tools import pdb_file
 import argparse
 
 parser = argparse.ArgumentParser(
